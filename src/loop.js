@@ -28,9 +28,13 @@ export async function runLoop(history, message, env) {
     { role: "user", content: message },
   ];
 
+  // One session id per turn, shared by every model call in this loop run,
+  // so the OpenCode Go endpoint can route and cache consistently.
+  const sessionId = crypto.randomUUID();
+
   let round = 0;
   while (round < MAX_ROUNDS) {
-    const assistant = await callModel(messages, env);
+    const assistant = await callModel(messages, env, sessionId);
     messages.push(assistant);
 
     const toolCalls = assistant.tool_calls ?? [];
@@ -53,12 +57,13 @@ export async function runLoop(history, message, env) {
   return "Uncle tried too many times already. Ask something simpler.";
 }
 
-async function callModel(messages, env) {
+async function callModel(messages, env, sessionId) {
   const res = await fetch(`${LLM_BASE_URL}/chat/completions`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
       authorization: `Bearer ${env.OPENCODE_API_KEY}`,
+      "x-opencode-session": sessionId,
     },
     body: JSON.stringify({
       model: LLM_MODEL,
