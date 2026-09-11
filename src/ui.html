@@ -50,29 +50,63 @@
     // Conversation so far, in the shape the /chat endpoint expects.
     const history = [];
 
-    // Bare URLs in a reply become links. Built as DOM nodes rather than with
-    // innerHTML, so nothing the model writes is ever parsed as HTML. The
-    // pattern only matches http(s), so a javascript: href cannot get through.
-    const URL_RE = /https?:\/\/[^\s<>"']+/g;
+    // Uncle writes place names as markdown links and may bold other text.
+    // Only three patterns are understood: **[name](url)**, [name](url) and
+    // **bold**, plus a bare url as a fallback. Everything else stays literal.
+    //
+    // Nodes are built with createElement/createTextNode and never innerHTML,
+    // so nothing the model writes is parsed as HTML. Both link patterns
+    // require an http(s) url, so a javascript: href cannot get through.
+    const MD_RE = new RegExp(
+      [
+        /\*\*\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)\*\*/, // **[name](url)**
+        /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/,         // [name](url)
+        /\*\*([^*\n]+)\*\*/,                              // **bold**
+        /(https?:\/\/[^\s<>"']+)/,                        // bare url
+      ]
+        .map((r) => r.source)
+        .join("|"),
+      "g",
+    );
+
+    function link(url, label) {
+      const a = document.createElement("a");
+      a.href = url;
+      a.textContent = label;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      return a;
+    }
 
     function renderText(el, text) {
       el.textContent = "";
       let last = 0;
-      for (const match of text.matchAll(URL_RE)) {
-        let url = match[0];
-        // Trailing punctuation ends the sentence, not the URL.
-        const tail = url.match(/[.,;:!?)\]]+$/);
-        if (tail) url = url.slice(0, -tail[0].length);
 
-        el.appendChild(document.createTextNode(text.slice(last, match.index)));
-        const a = document.createElement("a");
-        a.href = url;
-        a.textContent = "View on Google Maps";
-        a.target = "_blank";
-        a.rel = "noopener noreferrer";
-        el.appendChild(a);
-        last = match.index + url.length;
+      for (const m of text.matchAll(MD_RE)) {
+        const [whole, boldName, boldUrl, name, url, bold, bare] = m;
+        el.appendChild(document.createTextNode(text.slice(last, m.index)));
+        last = m.index + whole.length;
+
+        if (boldName) {
+          el.appendChild(link(boldUrl, boldName));
+        } else if (name) {
+          el.appendChild(link(url, name));
+        } else if (bold) {
+          const strong = document.createElement("strong");
+          strong.textContent = bold;
+          el.appendChild(strong);
+        } else {
+          // Trailing punctuation ends the sentence, not the url.
+          let href = bare;
+          const tail = href.match(/[.,;:!?)\]]+$/);
+          if (tail) {
+            href = href.slice(0, -tail[0].length);
+            last -= tail[0].length;
+          }
+          el.appendChild(link(href, "View on Google Maps"));
+        }
       }
+
       el.appendChild(document.createTextNode(text.slice(last)));
       return el;
     }
