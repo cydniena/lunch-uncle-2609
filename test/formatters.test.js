@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   formatForecast,
   formatBusArrivals,
+  formatPlaces,
   haversineMetres,
 } from "../src/tools.js";
 
@@ -54,4 +55,37 @@ test("haversineMetres measures CT Hub 2 to Lavender MRT at under 600 m", () => {
   const lavenderMrt = { latitude: 1.3073, longitude: 103.8631 };
   const distance = haversineMetres(ctHub2, lavenderMrt);
   assert.ok(distance > 400 && distance < 550, `got ${distance}`);
+});
+
+test("formatPlaces attaches a Google Maps link built from the place id", () => {
+  const origin = { latitude: 1.3115, longitude: 103.8615 };
+  const places = [
+    {
+      id: "ChIJgQOl1McZ2jERv9uZnvT5vfQ",
+      displayName: { text: "Sam Leong St Chicken Rice" },
+      rating: 4.1,
+      location: origin,
+    },
+  ];
+
+  assert.deepEqual(formatPlaces(places, origin), [
+    {
+      name: "Sam Leong St Chicken Rice",
+      rating: 4.1,
+      distance_m: 0,
+      maps_url:
+        "https://www.google.com/maps/place/?q=place_id:ChIJgQOl1McZ2jERv9uZnvT5vfQ",
+    },
+  ]);
+});
+
+test("formatPlaces yields a null link when the place id is missing", () => {
+  const origin = { latitude: 1.3115, longitude: 103.8615 };
+  const [place] = formatPlaces(
+    [{ displayName: { text: "Unnamed stall" }, location: origin }],
+    origin,
+  );
+
+  assert.equal(place.maps_url, null);
+  assert.equal(place.rating, null);
 });

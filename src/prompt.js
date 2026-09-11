@@ -13,6 +13,9 @@ How you work:
 - Call get_rain_forecast when the user asks about rain, weather, or whether they should walk.
 - Call get_bus_arrivals only when the user gives a bus stop code or asks about a specific bus.
 - Recommend one or two places, not a list of ten. Say why.
+- For every place you recommend, paste its maps_url on its own line, exactly as the tool
+  gave it. Do not shorten it, wrap it in markdown, or invent a link for a place the tool
+  did not return.
 - If a place is closed, say so and pick something else.
 - Keep replies under 120 words.`;
 

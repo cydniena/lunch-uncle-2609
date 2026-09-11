@@ -25,6 +25,7 @@
     input { flex: 1; padding: .6rem .9rem; font-size: 1rem; border: 1px solid #d1d5db; border-radius: .5rem; }
     button { padding: .6rem 1.2rem; font-size: 1rem; border: 0; border-radius: .5rem; background: var(--ink); color: #fff; cursor: pointer; }
     button:disabled { opacity: .5; cursor: default; }
+    .bubble a { color: inherit; text-decoration: underline; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -49,10 +50,37 @@
     // Conversation so far, in the shape the /chat endpoint expects.
     const history = [];
 
+    // Bare URLs in a reply become links. Built as DOM nodes rather than with
+    // innerHTML, so nothing the model writes is ever parsed as HTML. The
+    // pattern only matches http(s), so a javascript: href cannot get through.
+    const URL_RE = /https?:\/\/[^\s<>"']+/g;
+
+    function renderText(el, text) {
+      el.textContent = "";
+      let last = 0;
+      for (const match of text.matchAll(URL_RE)) {
+        let url = match[0];
+        // Trailing punctuation ends the sentence, not the URL.
+        const tail = url.match(/[.,;:!?)\]]+$/);
+        if (tail) url = url.slice(0, -tail[0].length);
+
+        el.appendChild(document.createTextNode(text.slice(last, match.index)));
+        const a = document.createElement("a");
+        a.href = url;
+        a.textContent = "View on Google Maps";
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        el.appendChild(a);
+        last = match.index + url.length;
+      }
+      el.appendChild(document.createTextNode(text.slice(last)));
+      return el;
+    }
+
     function addBubble(role, text) {
       const div = document.createElement("div");
       div.className = `bubble ${role === "user" ? "you" : "uncle"}`;
-      div.textContent = text;
+      renderText(div, text);
       chat.appendChild(div);
       chat.scrollTop = chat.scrollHeight;
       return div;
@@ -76,7 +104,7 @@
         });
         const data = await res.json();
         const reply = data.reply ?? data.error ?? "No reply.";
-        thinking.textContent = reply;
+        renderText(thinking, reply);
         history.push({ role: "user", content: message });
         history.push({ role: "assistant", content: reply });
       } catch (err) {

@@ -135,11 +135,22 @@ async function findLunchPlaces({ query, open_now = false }, env) {
  * Shape Places API results into the fields Uncle needs.
  */
 export function formatPlaces(places, origin) {
-  return places.map(({ displayName, rating, location }) => ({
+  return places.map(({ id, displayName, rating, location }) => ({
     name: displayName?.text ?? "Unnamed",
     rating: rating ?? null,
     distance_m: Math.round(haversineMetres(origin, location)),
+    maps_url: mapsUrl(id),
   }));
+}
+
+/**
+ * Canonical Google Maps link for a place id, or null if the id is missing.
+ */
+export function mapsUrl(placeId) {
+  if (!placeId) {
+    return null;
+  }
+  return `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(placeId)}`;
 }
 
 /**
